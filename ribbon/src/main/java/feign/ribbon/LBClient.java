@@ -61,7 +61,7 @@ public final class LBClient extends
   }
 
   LBClient(ILoadBalancer lb, IClientConfig clientConfig) {
-    super(lb, clientConfig);
+    super(lb, clientConfig); /* ILoadBalancer 传入*/
     this.clientConfig = clientConfig;
     connectTimeout = clientConfig.get(CommonClientConfigKey.ConnectTimeout);
     readTimeout = clientConfig.get(CommonClientConfigKey.ReadTimeout);
@@ -109,8 +109,8 @@ public final class LBClient extends
 
   static class RibbonRequest extends ClientRequest implements Cloneable {
 
-    private final Request request;
-    private final Client client;
+    private final Request request; /* feign体系的req*/
+    private final Client client;  /* feign体系的Client*/
 
     RibbonRequest(Client client, Request request, URI uri) {
       this.client = client;

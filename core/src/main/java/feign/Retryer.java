@@ -54,7 +54,7 @@ public interface Retryer extends Cloneable {
 
     public void continueOrPropagate(RetryableException e) {
       if (attempt++ >= maxAttempts) {
-        throw e;
+        throw e; /* 不再重试， 重抛 */
       }
 
       long interval;
@@ -70,7 +70,7 @@ public interface Retryer extends Cloneable {
         interval = nextMaxInterval();
       }
       try {
-        Thread.sleep(interval);
+        Thread.sleep(interval); /* 重试间隔太近，就sleep一会*/
       } catch (InterruptedException ignored) {
         Thread.currentThread().interrupt();
         throw e;

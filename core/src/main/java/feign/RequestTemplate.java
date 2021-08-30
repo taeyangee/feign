@@ -176,7 +176,7 @@ public final class RequestTemplate implements Serializable {
       this.uriTemplate = UriTemplate.create("", !this.decodeSlash, this.charset);
     }
 
-    String expanded = this.uriTemplate.expand(variables);
+    String expanded = this.uriTemplate.expand(variables); /* 填充入参到 url路径上 */
     if (expanded != null) {
       uri.append(expanded);
     }
@@ -193,7 +193,7 @@ public final class RequestTemplate implements Serializable {
       StringBuilder query = new StringBuilder();
       Iterator<QueryTemplate> queryTemplates = this.queries.values().iterator();
 
-      while (queryTemplates.hasNext()) {
+      while (queryTemplates.hasNext()) { /* 填充入参到 http query上 */
         QueryTemplate queryTemplate = queryTemplates.next();
         String queryExpanded = queryTemplate.expand(variables);
         if (Util.isNotBlank(queryExpanded)) {
@@ -221,7 +221,7 @@ public final class RequestTemplate implements Serializable {
     resolved.uri(uri.toString());
 
     /* headers */
-    if (!this.headers.isEmpty()) {
+    if (!this.headers.isEmpty()) {  /* 填充入参到 http head上  */
       /*
        * same as the query string, we only want to keep resolved values, so clear the header map on
        * the resolved instance
@@ -238,7 +238,7 @@ public final class RequestTemplate implements Serializable {
     }
 
     if (this.bodyTemplate != null) {
-      resolved.body(this.bodyTemplate.expand(variables));
+      resolved.body(this.bodyTemplate.expand(variables));  /* 填充入参到 body中 */
     }
 
     /* mark the new template resolved */

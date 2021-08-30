@@ -46,7 +46,7 @@ public class ReflectiveFeign extends Feign {
   @SuppressWarnings("unchecked")
   @Override
   public <T> T newInstance(Target<T> target) {
-    Map<String, MethodHandler> nameToHandler = targetToHandlersByName.apply(target);
+    Map<String, MethodHandler> nameToHandler = targetToHandlersByName.apply(target); /* 关键：解析出MethodHandler */
     Map<Method, MethodHandler> methodToHandler = new LinkedHashMap<Method, MethodHandler>();
     List<DefaultMethodHandler> defaultMethodHandlers = new LinkedList<DefaultMethodHandler>();
 
@@ -54,24 +54,24 @@ public class ReflectiveFeign extends Feign {
       if (method.getDeclaringClass() == Object.class) {
         continue;
       } else if (Util.isDefault(method)) {
-        DefaultMethodHandler handler = new DefaultMethodHandler(method);
+        DefaultMethodHandler handler = new DefaultMethodHandler(method); /* 每个RPC方法创建一个对应的MethodHandler方法处理器 */
         defaultMethodHandlers.add(handler);
         methodToHandler.put(method, handler);
       } else {
         methodToHandler.put(method, nameToHandler.get(Feign.configKey(target.type(), method)));
       }
     }
-    InvocationHandler handler = factory.create(target, methodToHandler);
+    InvocationHandler handler = factory.create(target, methodToHandler); /* InvocationHandler 持有 methodToHandler这个map */
     T proxy = (T) Proxy.newProxyInstance(target.type().getClassLoader(),
-        new Class<?>[] {target.type()}, handler);
+        new Class<?>[] {target.type()}, handler); /* InvocationHandler 就是反射的入口 */
 
     for (DefaultMethodHandler defaultMethodHandler : defaultMethodHandlers) {
-      defaultMethodHandler.bindTo(proxy);
+      defaultMethodHandler.bindTo(proxy); /* 为了让 methodToHandler不被多个owner持有？  说明里头写了：是了让接口default方法调用，被认为是proxy方法被调用  */
     }
     return proxy;
   }
 
-  static class FeignInvocationHandler implements InvocationHandler {
+  static class FeignInvocationHandler implements InvocationHandler { /* 调用流程入口：反射 */
 
     private final Target target;
     private final Map<Method, MethodHandler> dispatch;
@@ -97,7 +97,7 @@ public class ReflectiveFeign extends Feign {
         return toString();
       }
 
-      return dispatch.get(method).invoke(args);
+      return dispatch.get(method).invoke(args); /* dispatch判断使用哪个 MethodHandler， 默认实现是 SynchronousMethodHandler */
     }
 
     @Override
@@ -148,10 +148,10 @@ public class ReflectiveFeign extends Feign {
     }
 
     public Map<String, MethodHandler> apply(Target target) {
-      List<MethodMetadata> metadata = contract.parseAndValidateMetadata(target.type());
+      List<MethodMetadata> metadata = contract.parseAndValidateMetadata(target.type()); /* spc实现contract接口， 完成元数据解析*/
       Map<String, MethodHandler> result = new LinkedHashMap<String, MethodHandler>();
       for (MethodMetadata md : metadata) {
-        BuildTemplateByResolvingArgs buildTemplate;
+        BuildTemplateByResolvingArgs buildTemplate; /* RequestTemplate.Factory实例： 每个feign client会包含一个rest template？ */
         if (!md.formParams().isEmpty() && md.template().bodyTemplate() == null) {
           buildTemplate =
               new BuildFormEncodedTemplateFromArgs(md, encoder, queryMapEncoder, target);
@@ -166,7 +166,7 @@ public class ReflectiveFeign extends Feign {
           });
         } else {
           result.put(md.configKey(),
-              factory.create(target, md, buildTemplate, options, decoder, errorDecoder));
+              factory.create(target, md, buildTemplate, options, decoder, errorDecoder)); /* handler使用工厂模式创建*/
         }
       }
       return result;
@@ -208,14 +208,14 @@ public class ReflectiveFeign extends Feign {
 
     @Override
     public RequestTemplate create(Object[] argv) {
-      RequestTemplate mutable = RequestTemplate.from(metadata.template());
+      RequestTemplate mutable = RequestTemplate.from(metadata.template()); /*  1、每次调用都new一个? */
       mutable.feignTarget(target);
       if (metadata.urlIndex() != null) {
         int urlIndex = metadata.urlIndex();
         checkArgument(argv[urlIndex] != null, "URI parameter %s was null", urlIndex);
         mutable.target(String.valueOf(argv[urlIndex]));
       }
-      Map<String, Object> varBuilder = new LinkedHashMap<String, Object>();
+      Map<String, Object> varBuilder = new LinkedHashMap<String, Object>(); /* 2、根据运行时入参， 准备一下query数据 */
       for (Entry<Integer, Collection<String>> entry : metadata.indexToName().entrySet()) {
         int i = entry.getKey();
         Object value = argv[entry.getKey()];
@@ -330,7 +330,7 @@ public class ReflectiveFeign extends Feign {
     protected RequestTemplate resolve(Object[] argv,
                                       RequestTemplate mutable,
                                       Map<String, Object> variables) {
-      return mutable.resolve(variables);
+      return mutable.resolve(variables); /* 调用各种更细的template对运行时入参做 template渲染 */
     }
   }
 

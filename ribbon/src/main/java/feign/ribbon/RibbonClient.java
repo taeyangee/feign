@@ -36,15 +36,15 @@ import java.net.URI;
  */
 public class RibbonClient implements Client {
 
-  private final Client delegate;
-  private final LBClientFactory lbClientFactory;
+  private final Client delegate; /* 默认：Client.Default */
+  private final LBClientFactory lbClientFactory; /* 默认：LBClientFactory.Default, 这个工厂构建的Client是纯RB体系的*/
 
 
   public static RibbonClient create() {
     return builder().build();
   }
 
-  public static Builder builder() {
+  public static Builder builder() { /* 简单构建一下delegate、lbClientFactory */
     return new Builder();
   }
 
@@ -71,13 +71,13 @@ public class RibbonClient implements Client {
 
   @Override
   public Response execute(Request request, Request.Options options) throws IOException {
-    try {
+    try { /* 内部使用了RB体系的*/
       URI asUri = URI.create(request.url());
       String clientName = asUri.getHost();
       URI uriWithoutHost = cleanUrl(request.url(), clientName);
-      LBClient.RibbonRequest ribbonRequest =
+      LBClient.RibbonRequest ribbonRequest = /* rb的Request*/
           new LBClient.RibbonRequest(delegate, request, uriWithoutHost);
-      return lbClient(clientName).executeWithLoadBalancer(ribbonRequest,
+      return lbClient(clientName).executeWithLoadBalancer(ribbonRequest, /* 每个clientname对应一个rb体系的 lbclient */
           new FeignOptionsClientConfig(options)).toResponse();
     } catch (ClientException e) {
       propagateFirstIOException(e);
@@ -98,7 +98,7 @@ public class RibbonClient implements Client {
     return URI.create(originalUrl.replaceFirst(host, ""));
   }
 
-  private LBClient lbClient(String clientName) {
+  private LBClient lbClient(String clientName) { /* 构造 rb client*/
     return lbClientFactory.create(clientName);
   }
 

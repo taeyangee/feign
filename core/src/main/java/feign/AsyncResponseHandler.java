@@ -62,7 +62,7 @@ class AsyncResponseHandler {
                       long elapsedTime) {
     // copied fairly liberally from SynchronousMethodHandler
     boolean shouldClose = true;
-
+    /* 一路就是拿Response配置了resultFuture */
     try {
       if (logLevel != Level.NONE) {
         response = logger.logAndRebufferResponse(configKey, logLevel, response,

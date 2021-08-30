@@ -20,7 +20,7 @@ import com.netflix.client.config.IClientConfig;
 import com.netflix.client.config.IClientConfigKey;
 import com.netflix.loadbalancer.ILoadBalancer;
 
-public interface LBClientFactory {
+public interface LBClientFactory { /* 持有ILoadBalancer */
 
   LBClient create(String clientName);
 

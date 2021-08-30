@@ -33,7 +33,7 @@ final class SynchronousMethodHandler implements MethodHandler {
 
   private final MethodMetadata metadata;
   private final Target<?> target;
-  private final Client client;
+  private final Client client; /* feign的client接口，spc提供的实现是 LoadBalancerFeignClient？ */
   private final Retryer retryer;
   private final List<RequestInterceptor> requestInterceptors;
   private final Logger logger;
@@ -81,15 +81,15 @@ final class SynchronousMethodHandler implements MethodHandler {
 
   @Override
   public Object invoke(Object[] argv) throws Throwable {
-    RequestTemplate template = buildTemplateFromArgs.create(argv);
-    Options options = findOptions(argv);
+    RequestTemplate template = buildTemplateFromArgs.create(argv); /* RequestTemplate.Factory + 运行时参数 =  RequestTemplate */
+    Options options = findOptions(argv); /* 从参数中，抽取 http options*/
     Retryer retryer = this.retryer.clone();
     while (true) {
       try {
-        return executeAndDecode(template, options);
-      } catch (RetryableException e) {
+        return executeAndDecode(template, options); /* 请求执行 与 返回值解码 */
+      } catch (RetryableException e) { /* ErrorDecoder#decode会跑出这个异常*/
         try {
-          retryer.continueOrPropagate(e);
+          retryer.continueOrPropagate(e); /* 重试or抛异常*/
         } catch (RetryableException th) {
           Throwable cause = th.getCause();
           if (propagationPolicy == UNWRAP && cause != null) {
@@ -107,18 +107,18 @@ final class SynchronousMethodHandler implements MethodHandler {
   }
 
   Object executeAndDecode(RequestTemplate template, Options options) throws Throwable {
-    Request request = targetRequest(template);
+    Request request = targetRequest(template); /* 构建Req, 这货是feign的概念 */
 
     if (logLevel != Logger.Level.NONE) {
       logger.logRequest(metadata.configKey(), logLevel, request);
     }
 
-    Response response;
+    Response response; /* feign的resp接口 */
     long start = System.nanoTime();
     try {
       response = client.execute(request, options);
       // ensure the request is set. TODO: remove in Feign 12
-      response = response.toBuilder()
+      response = response.toBuilder() /* 把请求装配回去， 丰富一下上下文 */
           .request(request)
           .requestTemplate(template)
           .build();
@@ -126,24 +126,24 @@ final class SynchronousMethodHandler implements MethodHandler {
       if (logLevel != Logger.Level.NONE) {
         logger.logIOException(metadata.configKey(), logLevel, e, elapsedTime(start));
       }
-      throw errorExecuting(request, e);
+      throw errorExecuting(request, e); /*抛出  RetryableException */
     }
-    long elapsedTime = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+    long elapsedTime = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start); /* 统计调用耗时 */
 
 
     if (decoder != null)
-      return decoder.decode(response, metadata.returnType());
+      return decoder.decode(response, metadata.returnType()); /* decoder解码response*/
 
     CompletableFuture<Object> resultFuture = new CompletableFuture<>();
     asyncResponseHandler.handleResponse(resultFuture, metadata.configKey(), response,
         metadata.returnType(),
-        elapsedTime);
+        elapsedTime); /* asyncResponseHandler 名字有点迷惑，其实本身不具备异步特性，只是在本地处理response。 之所以叫 async，可能最早是想配合 AsyncFeign(AsyncBuilder<C>)使用的 */
 
     try {
       if (!resultFuture.isDone())
         throw new IllegalStateException("Response handling not done");
 
-      return resultFuture.join();
+      return resultFuture.join(); /* 处理结果：response在resultFuture做了一些列 */
     } catch (CompletionException e) {
       Throwable cause = e.getCause();
       if (cause != null)
@@ -158,9 +158,9 @@ final class SynchronousMethodHandler implements MethodHandler {
 
   Request targetRequest(RequestTemplate template) {
     for (RequestInterceptor interceptor : requestInterceptors) {
-      interceptor.apply(template);
+      interceptor.apply(template);  /* RequestInterceptor 增强 template */
     }
-    return target.apply(template);
+    return target.apply(template); /* template 转 request */
   }
 
   Options findOptions(Object[] argv) {
@@ -208,7 +208,7 @@ final class SynchronousMethodHandler implements MethodHandler {
                                 ErrorDecoder errorDecoder) {
       return new SynchronousMethodHandler(target, client, retryer, requestInterceptors, logger,
           logLevel, md, buildTemplateFromArgs, options, decoder,
-          errorDecoder, decode404, closeAfterDecode, propagationPolicy, forceDecoding);
+          errorDecoder, decode404, closeAfterDecode, propagationPolicy, forceDecoding); /* 调用流程的真正逻辑在这里头 */
     }
   }
 }
